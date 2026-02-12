@@ -60,7 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user && !inAuthGroup) {
       router.replace('/login'); 
     } else if (user && inAuthGroup) {
-      router.replace('/'); 
+      // Forçamos a ida para o grupo de abas, não para a raiz
+      router.replace('/(tabs)'); 
     }
   }, [user, segments, isLoading]);
 
