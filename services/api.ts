@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// IP da sua VM Local
+// MANTENHA O IP DO SEU SERVIDOR AQUI
 const API_URL = 'http://192.168.0.115:3001/api'; 
 
 const api = axios.create({
@@ -14,8 +14,6 @@ api.interceptors.request.use(async (config) => {
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    // Adicione outros headers se seu backend exigir (ex: x-user-id)
-    // Mas geralmente o Bearer resolve se o backend decodificar o JWT
   }
   return config;
 });
@@ -36,6 +34,13 @@ export const setAuthToken = async (token: string) => {
 
 export const removeAuthToken = async () => {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
+};
+
+// HELPER EXTRA PARA O CONTEXTO
+export const authService = {
+    async getToken() {
+        return await SecureStore.getItemAsync(TOKEN_KEY);
+    }
 };
 
 export default api;
