@@ -12,7 +12,7 @@ import {
   StatusBar 
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Mail, ArrowRight, Eye, EyeOff, FileText } from 'lucide-react-native';
+import { Lock, Mail, ArrowRight, Eye, EyeOff, FileText, Sparkles } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 export default function Login() {
@@ -44,7 +44,6 @@ export default function Login() {
       
       {/* 1. HEADER (Identidade Visual da Marca) */}
       <View className="h-[35%] justify-center items-center px-6">
-        {/* Ícone ou Logo da Marca */}
         <View className="w-24 h-24 bg-white/20 rounded-3xl items-center justify-center mb-4 backdrop-blur-md border border-white/30">
             <FileText color="white" size={48} strokeWidth={1.5} />
         </View>
@@ -61,7 +60,7 @@ export default function Login() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           className="flex-1"
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
             
             <Text className="text-slate-800 text-2xl font-bold mb-6">Acesse sua conta</Text>
 
@@ -110,7 +109,7 @@ export default function Login() {
                 </TouchableOpacity>
               </View>
 
-              {/* Botão Principal */}
+              {/* Botão Principal de Login */}
               <TouchableOpacity 
                 onPress={handleLogin}
                 disabled={loading}
@@ -127,11 +126,27 @@ export default function Login() {
               </TouchableOpacity>
             </View>
 
-            {/* Rodapé */}
-            <View className="mt-10 mb-6 flex-row justify-center items-center pb-8">
-                <Text className="text-slate-500 font-medium">Não tem uma conta?</Text>
+            {/* Linha Divisória */}
+            <View className="flex-row items-center my-8">
+              <View className="flex-1 h-[1px] bg-slate-200" />
+              <Text className="text-slate-400 font-medium mx-4 text-sm">OU</Text>
+              <View className="flex-1 h-[1px] bg-slate-200" />
+            </View>
+
+            {/* NOVO: Botão de Planos */}
+            <TouchableOpacity 
+              onPress={() => Alert.alert("Planos", "Redirecionando para a página de planos...")}
+              className="bg-white border-2 border-slate-100 h-16 rounded-2xl items-center justify-center flex-row shadow-sm active:bg-slate-50"
+            >
+              <Sparkles color="#2563eb" size={20} className="mr-2" />
+              <Text className="text-slate-700 font-bold text-base">Conheça seu plano perfeito</Text>
+            </TouchableOpacity>
+
+            {/* Rodapé (Cadastro Web) */}
+            <View className="mt-8 flex-row justify-center items-center">
+                <Text className="text-slate-500 font-medium text-sm">Não tem uma conta?</Text>
                 <TouchableOpacity onPress={() => Alert.alert("Cadastro", "Acesse nosso site para criar sua conta.")}>
-                    <Text className="text-blue-600 font-bold ml-1 text-base">Cadastre-se</Text>
+                    <Text className="text-blue-600 font-bold ml-1 text-sm">Cadastre-se pelo site</Text>
                 </TouchableOpacity>
             </View>
 

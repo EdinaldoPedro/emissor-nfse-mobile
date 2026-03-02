@@ -1,19 +1,28 @@
+import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, PlusCircle, FileText, User, Menu } from 'lucide-react-native';
-import { View, Platform } from 'react-native';
+import { Home, PlusCircle, FileText } from 'lucide-react-native';
+import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
+  // Calcula a altura da barra e o padding inferior dinamicamente
+  // O valor 60 é a altura base do botão. Somamos com o tamanho da barra do celular.
+  const tabBarHeight = 65 + Math.max(insets.bottom, 10);
+  const paddingBottom = Math.max(insets.bottom, 10);
+
   return (
     <Tabs
       screenOptions={{
-        headerShown: false, // Removemos o cabeçalho padrão de todas as telas
+        headerShown: false,
         tabBarActiveTintColor: '#2563eb', // Azul 600
         tabBarInactiveTintColor: '#94a3b8', // Slate 400
         tabBarStyle: {
           borderTopWidth: 0,
           elevation: 5, // Sombra no Android
-          height: Platform.OS === 'ios' ? 85 : 65,
-          paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+          height: tabBarHeight,
+          paddingBottom: paddingBottom,
           paddingTop: 10,
           backgroundColor: '#ffffff',
         },
@@ -36,12 +45,12 @@ export default function TabLayout() {
         name="emitir"
         options={{
           title: 'Emitir',
-          tabBarIcon: ({ color, focused }) => (
-            <View className={`items-center justify-center -mt-4 p-3 rounded-full shadow-lg ${focused ? 'bg-blue-600' : 'bg-blue-500'}`}>
+          tabBarIcon: ({ focused }) => (
+            <View className={`items-center justify-center -mt-5 p-3 rounded-full shadow-lg ${focused ? 'bg-blue-600' : 'bg-blue-500'}`}>
                 <PlusCircle size={30} color="white" />
             </View>
           ),
-          tabBarLabel: () => null, // Esconde o texto "Emitir" para dar destaque ao ícone
+          tabBarLabel: () => null, // Esconde o texto para dar destaque ao ícone
         }}
       />
 

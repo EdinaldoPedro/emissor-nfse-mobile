@@ -1,22 +1,23 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Image, StatusBar } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
   Building, 
   FileText, 
-  ChevronRight, 
   Bell, 
   TrendingUp, 
   Users, 
-  HelpCircle 
+  HelpCircle,
+  User,
+  PlusCircle,
+  LogOut // <-- Adicionado o ícone de Sair
 } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { formatCurrency } from '../../utils/format'; // Verifique se criou esse arquivo antes, se não, crie um simples
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth(); // <-- Puxando a função signOut
   const router = useRouter();
   
   const [loading, setLoading] = useState(true);
@@ -24,16 +25,35 @@ export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [recentNotas, setRecentNotas] = useState<any[]>([]);
 
+  const [quickActions, setQuickActions] = useState([
+    { id: 'emitir', label: 'Nova Nota', icon: PlusCircle, color: '#2563eb', bg: 'bg-blue-50', route: '/(tabs)/emitir' },
+    { id: 'conta', label: 'Minha Conta', icon: User, color: '#7c3aed', bg: 'bg-violet-50', route: '/configuracoes/conta' },
+    { id: 'empresa', label: 'Minha Empresa', icon: Building, color: '#0891b2', bg: 'bg-cyan-50', route: '/configuracoes/empresa' },
+    { id: 'clientes', label: 'Clientes', icon: Users, color: '#9333ea', bg: 'bg-purple-50', route: '/clientes' },
+    { id: 'ajuda', label: 'Ajuda', icon: HelpCircle, color: '#16a34a', bg: 'bg-green-50', route: '/ajuda' }
+  ]);
+
+  const handleActionPress = (action: any) => {
+    // 1. Reordenar: Move o item clicado para o início do array
+    const newOrder = [
+      action,
+      ...quickActions.filter(item => item.id !== action.id)
+    ];
+    setQuickActions(newOrder);
+
+    // 2. Navegar para a rota clicada (Agora sem bloqueios para telas de configuração)
+    if (action.route) {
+        router.push(action.route as any);
+    }
+  };
+
   const fetchData = async () => {
     try {
-      // 1. Dados do Perfil/Empresa
       const resPerfil = await api.get('/perfil');
       setStats(resPerfil.data);
-
-      // 2. Últimas 3 notas para o resumo
+      
       const resNotas = await api.get('/notas?limit=3');
       setRecentNotas(resNotas.data.data || []);
-      
     } catch (error) {
       console.log("Erro ao carregar dashboard:", error);
     } finally {
@@ -53,9 +73,8 @@ export default function Dashboard() {
     setRefreshing(false);
   };
 
-  // Cálculos visuais do plano
   const emissoesFeitas = stats?.planoDetalhado?.usoEmissoes || 0;
-  const limitePlano = 50; // Valor fixo de exemplo ou vindo do backend
+  const limitePlano = 50; 
   const progresso = Math.min((emissoesFeitas / limitePlano) * 100, 100);
 
   return (
@@ -65,23 +84,32 @@ export default function Dashboard() {
       <ScrollView 
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        {/* === HEADER === */}
-        <View className="px-6 pt-2 pb-6 flex-row justify-between items-center">
+        {/* === HEADER COM BOTÃO DE SAIR === */}
+        <View className="px-6 pt-4 pb-6 flex-row justify-between items-center">
           <View>
-            <Text className="text-slate-500 text-sm font-medium">Bem-vindo de volta,</Text>
+            <Text className="text-slate-500 text-sm font-medium">Bem-vindo,</Text>
             <Text className="text-slate-900 text-2xl font-bold">{user?.nome?.split(' ')[0]}</Text>
           </View>
-          <TouchableOpacity className="w-10 h-10 bg-white items-center justify-center rounded-full border border-slate-200 shadow-sm">
-            <Bell size={20} color="#64748b" />
-            <View className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
-          </TouchableOpacity>
+          
+          {/* BOTÕES NO TOPO */}
+          <View className="flex-row items-center gap-3">
+            {/* NOVO BOTÃO DE SAIR PARA VOCÊ ESCAPAR */}
+            <TouchableOpacity onPress={signOut} className="w-10 h-10 bg-red-50 items-center justify-center rounded-full border border-red-100 shadow-sm">
+              <LogOut size={18} color="#ef4444" />
+            </TouchableOpacity>
+
+            <TouchableOpacity className="w-10 h-10 bg-white items-center justify-center rounded-full border border-slate-200 shadow-sm">
+              <Bell size={20} color="#64748b" />
+              <View className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* === CARD DA EMPRESA (Principal) === */}
+        {/* === CARD DA EMPRESA === */}
         <View className="mx-6">
           <View className="bg-blue-600 rounded-3xl p-6 shadow-xl shadow-blue-200 overflow-hidden relative">
-            {/* Decoração de fundo (círculos) */}
             <View className="absolute -top-10 -right-10 w-40 h-40 bg-blue-500 rounded-full opacity-30" />
             <View className="absolute top-20 -left-10 w-32 h-32 bg-blue-400 rounded-full opacity-20" />
 
@@ -92,12 +120,11 @@ export default function Dashboard() {
               <View className="flex-1">
                 <Text className="text-blue-100 text-xs font-bold uppercase tracking-wider">Empresa Ativa</Text>
                 <Text className="text-white font-bold text-lg leading-tight" numberOfLines={1}>
-                  {stats?.razaoSocial || stats?.empresa?.razaoSocial || 'Minha Empresa'}
+                  {stats?.razaoSocial || stats?.empresa?.razaoSocial || 'Carregando...'}
                 </Text>
               </View>
             </View>
 
-            {/* Barra de Progresso do Plano */}
             <View>
               <View className="flex-row justify-between mb-2">
                 <Text className="text-blue-100 text-xs font-medium">Consumo do Plano</Text>
@@ -106,52 +133,27 @@ export default function Dashboard() {
               <View className="h-2 bg-blue-900/30 rounded-full overflow-hidden">
                 <View style={{ width: `${progresso}%` }} className="h-full bg-white rounded-full" />
               </View>
-              <Text className="text-blue-200 text-[10px] mt-2 text-right">Renova em 01/03</Text>
             </View>
           </View>
         </View>
 
-        {/* === AÇÕES RÁPIDAS (Grid) === */}
-        <View className="px-6 mt-8">
-          <Text className="text-slate-800 font-bold text-lg mb-4">Acesso Rápido</Text>
-          <View className="flex-row gap-4">
-            
-            {/* Botão Emitir */}
-            <TouchableOpacity 
-              onPress={() => router.push('/(tabs)/emitir')}
-              className="flex-1 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm items-center"
-            >
-              <View className="w-12 h-12 bg-blue-50 rounded-full items-center justify-center mb-2">
-                <FileText color="#2563eb" size={24} />
-              </View>
-              <Text className="text-slate-700 font-bold text-sm">Nova Nota</Text>
-            </TouchableOpacity>
-
-            {/* Botão Clientes */}
-            <TouchableOpacity 
-              onPress={() => alert('Em breve: Gestão de Clientes')} // Ou router.push se tiver a tela
-              className="flex-1 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm items-center"
-            >
-              <View className="w-12 h-12 bg-purple-50 rounded-full items-center justify-center mb-2">
-                <Users color="#9333ea" size={24} />
-              </View>
-              <Text className="text-slate-700 font-bold text-sm">Clientes</Text>
-            </TouchableOpacity>
-
-            {/* Botão Suporte */}
-            <TouchableOpacity 
-              className="flex-1 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm items-center"
-            >
-              <View className="w-12 h-12 bg-green-50 rounded-full items-center justify-center mb-2">
-                <HelpCircle color="#16a34a" size={24} />
-              </View>
-              <Text className="text-slate-700 font-bold text-sm">Ajuda</Text>
-            </TouchableOpacity>
-          </View>
+        {/* === ACESSO RÁPIDO === */}
+        <View className="mt-8">
+          <Text className="px-6 text-slate-800 font-bold text-lg mb-4">Acesso Rápido</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 10 }}>
+            {quickActions.map((action) => (
+              <TouchableOpacity key={action.id} onPress={() => handleActionPress(action)} className="mr-3 w-28 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm items-center justify-center h-28">
+                <View className={`w-12 h-12 ${action.bg} rounded-full items-center justify-center mb-2`}>
+                  <action.icon color={action.color} size={24} />
+                </View>
+                <Text className="text-slate-700 font-bold text-xs text-center leading-4">{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         {/* === ATIVIDADE RECENTE === */}
-        <View className="px-6 mt-8">
+        <View className="px-6 mt-4">
           <View className="flex-row justify-between items-center mb-4">
             <Text className="text-slate-800 font-bold text-lg">Últimas Notas</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/notas')}>
@@ -160,41 +162,37 @@ export default function Dashboard() {
           </View>
 
           {recentNotas.length === 0 ? (
-            <View className="bg-white p-6 rounded-2xl border border-slate-100 items-center py-8">
+            <View className="bg-white p-6 rounded-2xl border border-slate-100 items-center py-8 border-dashed">
                <View className="bg-slate-50 p-4 rounded-full mb-3">
                  <FileText size={24} color="#cbd5e1" />
                </View>
-               <Text className="text-slate-400 font-medium">Nenhuma nota recente.</Text>
+               <Text className="text-slate-400 font-medium">Nenhuma nota emitida ainda.</Text>
             </View>
           ) : (
             recentNotas.map((venda, index) => {
-               // Ajuste conforme a estrutura do seu backend (venda.notas[0] ou venda direta)
                const nota = venda.notas?.[0] || {};
-               const statusColor = nota.status === 'AUTORIZADA' ? 'text-green-600 bg-green-50' : 'text-slate-500 bg-slate-100';
+               const isAutorizada = nota.status === 'AUTORIZADA';
                
                return (
                 <View key={venda.id || index} className="bg-white p-4 mb-3 rounded-2xl border border-slate-100 flex-row justify-between items-center shadow-sm">
                   <View className="flex-row items-center flex-1">
-                    <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${statusColor}`}>
-                      <TrendingUp size={18} color={nota.status === 'AUTORIZADA' ? '#16a34a' : '#64748b'} />
+                    <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${isAutorizada ? 'bg-green-50' : 'bg-slate-100'}`}>
+                      <TrendingUp size={18} color={isAutorizada ? '#16a34a' : '#64748b'} />
                     </View>
                     <View>
-                      <Text className="font-bold text-slate-800 text-base">{venda.cliente?.nome || 'Consumidor'}</Text>
-                      <Text className="text-slate-400 text-xs">
-                         {new Date(venda.createdAt).toLocaleDateString('pt-BR')} • {nota.numero ? `Nº ${nota.numero}` : 'Proc...'}
-                      </Text>
+                      <Text className="font-bold text-slate-800 text-base" numberOfLines={1}>{venda.cliente?.nome || 'Cliente Final'}</Text>
+                      <Text className="text-slate-400 text-xs">{new Date(venda.createdAt).toLocaleDateString('pt-BR')} • {nota.numero ? `Nº ${nota.numero}` : 'Proc...'}</Text>
                     </View>
                   </View>
                   <View className="items-end">
-                    <Text className="font-bold text-slate-900">R$ {venda.valor}</Text>
-                    <Text className="text-[10px] text-slate-400 font-bold">{nota.status || 'PENDENTE'}</Text>
+                    <Text className="font-bold text-slate-900">{venda.valor ? `R$ ${venda.valor}` : 'R$ 0,00'}</Text>
+                    <Text className={`text-[10px] font-bold ${isAutorizada ? 'text-green-600' : 'text-slate-400'}`}>{nota.status || 'PENDENTE'}</Text>
                   </View>
                 </View>
                );
             })
           )}
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );

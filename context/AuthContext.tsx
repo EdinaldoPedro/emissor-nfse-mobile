@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api, { setAuthToken, removeAuthToken } from '../services/api';
+import api, { setAuthToken, removeAuthToken, authService } from '../services/api';
 import { useRouter, useSegments } from 'expo-router';
-import { Alert } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 interface User {
   id: string;
@@ -14,36 +14,35 @@ interface User {
 interface AuthContextData {
   user: User | null;
   isLoading: boolean;
-  signIn: (email: string, pass: string) => Promise<void>;
+  empresaSelecionada: string | null;
+  signIn: (login: string, pass: string) => Promise<void>;
   signOut: () => void;
+  selecionarEmpresa: (id: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [empresaSelecionada, setEmpresaSelecionada] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const segments = useSegments();
 
-  // Carregar sessão salva ao abrir o app
+  // 1. Carrega dados salvos sem bater na API (Evita o erro 401 no boot)
   useEffect(() => {
     async function loadStorageData() {
       try {
-        const token = await api.authService.getToken(); // Helper do api.ts
+        const token = await authService.getToken();
+        const userData = await SecureStore.getItemAsync('nfse_user');
+        const empresaCtx = await authService.getEmpresaContext();
         
-        if (token) {
-           try {
-             // Validamos o token buscando o perfil
-             const res = await api.get('/perfil');
-             setUser(res.data);
-           } catch (err) {
-             console.log("Token inválido ou expirado");
-             await signOut();
-           }
+        if (token && userData) {
+           setUser(JSON.parse(userData));
+           setEmpresaSelecionada(empresaCtx);
         }
       } catch (error) {
-        console.log("Sem sessão salva");
+        console.log("Erro ao carregar sessão");
       } finally {
         setIsLoading(false);
       }
@@ -51,59 +50,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadStorageData();
   }, []);
 
-  // Proteção de Rotas (Redirecionamento Automático)
+  // 2. Lógica de Redirecionamento Baseada no Perfil (A Regra que você pediu)
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
+    const inAuthGroup = segments[0] === '(auth)' || segments[0] === 'login';
+    const isContadorScreen = segments[0] === 'selecionar-empresa';
 
     if (!user && !inAuthGroup) {
+      // Não logado -> Vai pro Login
       router.replace('/login'); 
-    } else if (user && inAuthGroup) {
-      // Forçamos a ida para o grupo de abas, não para a raiz
-      router.replace('/(tabs)'); 
+    } else if (user) {
+      if (user.role === 'CONTADOR' && !empresaSelecionada) {
+        // É Contador e não escolheu empresa -> Força a tela de seleção
+        if (!isContadorScreen) router.replace('/selecionar-empresa');
+      } else if (inAuthGroup || isContadorScreen) {
+        // É ADM/Cliente OU Contador que já escolheu a empresa -> Vai pra Dashboard
+        router.replace('/(tabs)');
+      }
     }
-  }, [user, segments, isLoading]);
+  }, [user, empresaSelecionada, segments, isLoading]);
 
-  async function signIn(emailInput: string, passInput: string) {
-    try {
-      // 1. HIGIENIZAÇÃO (O segredo do Mobile)
-      // Removemos espaços laterais e forçamos minúsculo para garantir o match no banco
-      const loginLimpo = emailInput.trim().toLowerCase(); 
-      const senhaLimpa = passInput.trim(); // Senhas geralmente não tem espaço no início/fim
+  async function signIn(loginInput: string, passInput: string) {
+    const loginLimpo = loginInput.trim().toLowerCase();
+    
+    const response = await api.post('/auth/login', { login: loginLimpo, senha: passInput.trim() });
+    const { token, user: userData } = response.data;
 
-      console.log("Enviando login:", loginLimpo); // Para você conferir no terminal
+    await setAuthToken(token);
+    await SecureStore.setItemAsync('nfse_user', JSON.stringify(userData));
+    setUser(userData);
+  }
 
-      // 2. ENVIO EXATO (Conforme route.ts do backend: login e senha)
-      const response = await api.post('/auth/login', {
-        login: loginLimpo, 
-        senha: senhaLimpa  
-      });
-
-      const { token, user } = response.data;
-
-      // 3. SALVAR SESSÃO
-      await setAuthToken(token);
-      setUser(user);
-      
-      // Força a ida para a home
-      router.replace('/');
-
-    } catch (error: any) {
-      console.error("Erro AuthContext:", error.response?.data || error.message);
-      // Repassamos o erro para a tela de login exibir o alerta
-      throw error; 
-    }
+  async function selecionarEmpresa(id: string) {
+    await authService.setEmpresaContext(id);
+    setEmpresaSelecionada(id);
+    router.replace('/(tabs)');
   }
 
   async function signOut() {
     await removeAuthToken();
+    await SecureStore.deleteItemAsync('nfse_user');
     setUser(null);
+    setEmpresaSelecionada(null);
     router.replace('/login');
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, empresaSelecionada, signIn, signOut, selecionarEmpresa }}>
       {children}
     </AuthContext.Provider>
   );
